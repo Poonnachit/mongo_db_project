@@ -4,25 +4,26 @@ import stat
 import datetime
 import pymongo
 import gridfs
+from gridfs import GridFS
 
 
 class BadEpub(Exception):
     """File is invalid"""
 
 
-def get_choice(prompt: str, maxchoice: int) -> int:
+def get_choice(prompt: str, max_choice: int) -> int:
     while True:
         which = input(prompt)
         try:
             which = int(which)
-            if 0 < which <= maxchoice:
+            if 0 < which <= max_choice:
                 return which
             print("Invalid choice!")
         except ValueError:
             print("Invalid choice!")
 
 
-def initialize_database(*, client, session, db):
+def initialize_database(*, session, db):
     if "books" in db.list_collection_names(session=session):
         return
     db.create_collection("books", session=session)
@@ -33,27 +34,17 @@ def initialize_database(*, client, session, db):
 
 def get_file_by_id(*, db, session, file_id, file_name):
     fs = gridfs.GridFS(db)
-    outfname = "./books_download/" + file_name
+    output_file_name = "./books_download/" + file_name
     # if the output file already exists, remove it
     try:
-        os.remove(outfname)
+        os.remove(output_file_name)
     except FileNotFoundError:
         pass
 
-    with open(outfname, "wb") as outfile:
-        outfile.write(fs.get(file_id, session=session).read())
+    with open(output_file_name, "wb") as output_file:
+        output_file.write(fs.get(file_id, session=session).read())
 
-    os.chmod(outfname, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-
-    tfile = fs.get_last_version(filename=file_name, session=session)
-    _id, filename, filelength, upload_date, content_type = (
-        tfile._id,
-        tfile.name,
-        tfile.length,
-        tfile.upload_date,
-        tfile.content_type,
-    )
-    tfile.close()
+    os.chmod(output_file_name, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
 
 
 def save_file_gridfs(*, db, session, file_name, file_path):
@@ -61,10 +52,10 @@ def save_file_gridfs(*, db, session, file_name, file_path):
     if not file_name.endswith(".epub"):
         raise BadEpub(f'specified file "{file_name}" is not an epub file.')
 
-    filter = {"filename": file_name}
-    fs = gridfs.GridFS(db)
-    if fs.exists(filter, session=session):
-        the_id = fs.find_one(filter, no_cursor_timeout=True, session=session)._id
+    file_name_filter = {"filename": file_name}
+    fs: GridFS = gridfs.GridFS(db)
+    if fs.exists(file_name_filter, session=session):
+        the_id = fs.find_one(file_name_filter, no_cursor_timeout=True, session=session)._id
         fs.delete(the_id, session=session)
         del the_id
     if os.path.isdir(file_path):
@@ -87,34 +78,37 @@ def save_file_gridfs(*, db, session, file_name, file_path):
 
 def add_books(*, session, db, books):
     for i in books:
-        i["file_id"] = save_file_gridfs(
-            db=db,
-            session=session,
-            file_name=i["file_name"],
-            file_path=i["file_path"],
-        )
         db.books.insert_one(i, session=session)
-        # get_file_by_id(
-        #     db=db, session=session, file_id=i["file_id"], file_name=i["file_name"]
-        # )
+
+        # try:
+        #     i["file_id"] = save_file_gridfs(
+        #         db=db,
+        #         session=session,
+        #         file_name=i["file_name"],
+        #         file_path=i["file_path"],
+        #     )
+        # except BadEpub as error_message:
+        #     raise BadEpub(error_message)
 
 
 def add_book_menu(*, session, db):
     print("-" * 80)
     print("Add a book")
     print("-" * 80)
-    book = {}
-    book["title"] = input("Enter the title of the book: ")
-    book["language"] = input("Enter the language of the book: ")
-    book["published_date"] = input("Enter the published date of the book: ")
-    book["copy_right"] = input("Enter the copy-right of the book: ")
-    book["file_name"] = input("Enter the file name of the book: ")
-    book["file_path"] = input("Enter the file path of the book: ")
+    book = {
+        "title": input("Enter the title of the book: "),
+        "language": input("Enter the language of the book: "),
+        "published_date": input("Enter the published date of the book: "),
+        "copy_right": input("Enter the copy-right of the book: "),
+        "file_name": input("Enter the file name of the book: "),
+        "file_path": input("Enter the file path of the book: ")
+    }
     authors = []
     while True:
-        author = {}
-        author["name"] = input("Enter the name of the author: ")
-        author["psuedonym"] = input("Enter the psuedonym of the author: ")
+        author = {
+            "name": input("Enter the name of the author: "),
+            "pseudonym": input("Enter the pseudonym of the author: ")
+        }
         authors.append(author)
         while True:
             again = input("Add another Author? (y/n): ")
@@ -155,16 +149,26 @@ def add_book_menu(*, session, db):
 
     try:
         add_books(session=session, db=db, books=[book])
-    except BadEpub as excpn:
-        print(excpn)
+    except BadEpub as error_message:
+        print(error_message)
         return
 
 
+def list_books(*, session: pymongo.mongo_client.client_session, db: pymongo.mongo_client.database.Database):
+    print("-" * 80)
+    books = list(db.books.find({}, session=session))
+    i = 0
+    for book in books:
+        i += 1
+        print(f"{i}. {book['title']}")
+    print(books[i-1])
+
+
 def menu():
+    print("-" * 80)
     print("1. Add a book")
     print("2. List all books")
     print("3. Search for a book")
-    print("4. Remove a book")
     print("5. Exit")
     choice = get_choice("Enter your choice: ", 5)
     return choice
@@ -172,21 +176,19 @@ def menu():
 
 def main():
     return_code = EXIT_SUCCESS
-    with pymongo.MongoClient(
-        "mongodb://localhost:27017/"
-    ) as client, client.start_session(causal_consistency=True) as session:
+    with pymongo.MongoClient(URI) as client, client.start_session(causal_consistency=True) as session:
         db = client.get_database("books")
         db.drop_collection("books")
         try:
-            initialize_database(client=client, session=session, db=db)
-        except RuntimeError as excpn:
-            print("Failed to initialize database: ", excpn)
+            initialize_database(session=session, db=db)
+        except RuntimeError as error_message:
+            print("Failed to initialize database: ", error_message)
             return_code = EXIT_FAILURE
 
         try:
             add_books(session=session, db=db, books=BOOKS_DATA)
-        except BadEpub as excpn:
-            print(excpn)
+        except BadEpub as error_message:
+            print(error_message)
             return_code = EXIT_FAILURE
 
         try:
@@ -195,7 +197,7 @@ def main():
                 if choice == 1:
                     add_book_menu(session=session, db=db)
                 elif choice == 2:
-                    print("List all books")
+                    list_books(session=session, db=db)
                 elif choice == 3:
                     print("Search for a book")
                 elif choice == 4:
@@ -231,9 +233,9 @@ books_schema = {
                             "minimum": 1,
                             "description": "Name of the author",
                         },
-                        "psuedonym": {
+                        "pseudonym": {
                             "bsonType": "string",
-                            "description": "Psuedonym of the author",
+                            "description": "Pseudonym of the author",
                         },
                     },
                 },
@@ -266,7 +268,7 @@ BOOKS_DATA = [
     {
         "title": "Frankenstein; Or, The Modern Prometheus",
         "author": [
-            {"name": "Mary Wollstonecraft Shelley", "psuedonym": "Mary Shelley"}
+            {"name": "Mary Wollstonecraft Shelley", "pseudonym": "Mary Shelley"}
         ],
         "language": "English",
         "published_date": datetime.datetime(1993, 10, 1),
@@ -298,6 +300,6 @@ BOOKS_DATA = [
 
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
-
+URI = "mongodb://localhost:27017/"
 if __name__ == "__main__":
     SystemExit(main())
