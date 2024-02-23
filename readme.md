@@ -32,13 +32,13 @@ It allows to add, delete, update and list books and authors.
 ├── readme.md <br>
 ├── .gitignore <br>
 
-| Folder Structure | Description                                        |
-|------------------|----------------------------------------------------|
-| books            | folder to store books file                         |
-| books_download   | folder to store books data downloaded from mongodb |
-| main.py          | main file for user to interact with db             |
-| bulk_loader.py   | file to load data to mongo db                      |
-| requirements.txt | list of requirements                               |
-| readme.md        | this file                                          |
-| .gitignore       | file to ignore files and folders                   |
+| Folder Structure   | Description                                          |
+|--------------------|------------------------------------------------------|
+| books              | folder to store books file                           |
+| books_download     | folder to store books data downloaded from mongodb   |
+| main.py            | main file for user to interact with db               |
+| bulk_loader.py     | file to load data to mongo db                        |
+| requirements.txt   | list of requirements                                 |
+| readme.md          | this file                                            |
+| .gitignore         | file to ignore files and folders                     |
 

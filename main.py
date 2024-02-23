@@ -1060,6 +1060,13 @@ def delete_book(
     db: pymongo.mongo_client.database.Database,
     book_id: str,
 ):
+    """
+    Delete book from database
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
     print("-" * 79)
     print("Delete Book")
     print("-" * 79)
@@ -1156,7 +1163,7 @@ def list_book_pagination(
     file_type: str = "ALL",
 ) -> tuple:
     """
-    List books with pagination from the database
+    get books data with pagination from the database
 
     Args:
         session: session to connect to the database
@@ -1205,6 +1212,15 @@ def print_books(
     filter_dict: dict = None,
     file_type: str = "ALL",
 ):
+    """
+    print book with pagination and filter
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        title: title of this print
+        filter_dict: filter to apply with books
+        file_type: file type to filter books
+    """
     page = 1
     page_size = 5
     while True:
@@ -1303,6 +1319,12 @@ def search_books_by_title(
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
+    """
+    Search books by title
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
     title = "Search by title"
     print("-" * 79)
     print(title)
@@ -1334,6 +1356,12 @@ def search_books_by_author_name(
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
+    """
+    Search books by author name
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
     title = "Search by author name"
     print("-" * 79)
     print(title)
@@ -1368,6 +1396,12 @@ def search_books_by_author_pseudonym(
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
+    """
+    Search books by author pseudonym
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
     title = "Search by author pseudonym"
     print("-" * 79)
     print(title)
@@ -1401,6 +1435,12 @@ def search_books_by_genre(
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
+    """
+    Search books by genre
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
     title = "Search by genre"
     print("-" * 79)
     print(title)
@@ -1432,6 +1472,12 @@ def search_books_by_sub_genre(
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
+    """
+    Search books by sub genre
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
     title = "Search by sub-genre"
     print("-" * 79)
     print(title)
@@ -1463,6 +1509,12 @@ def search_books_by_set_year(
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
+    """
+    Search books by set year
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
     title = "Search by set year"
     print("-" * 79)
     print(title)
@@ -1494,6 +1546,12 @@ def search_books_by_set_main_location(
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
+    """
+    Search books by set main location
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
     title = "Search by set country"
     print("-" * 79)
     print(title)
@@ -1525,6 +1583,12 @@ def search_books_by_main_character(
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
+    """
+    Search books by main_character
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
     title = "Search by main character"
     print("-" * 79)
     print(title)
@@ -1556,6 +1620,12 @@ def search_books_menu(
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
+    """
+    Search book menu to interact with user
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
     print("-" * 79)
     print("Search for a book")
     print("-" * 79)
