@@ -1615,6 +1615,117 @@ def search_books_by_main_character(
     )
 
 
+def search_books_by_language(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    """
+    Search books by language
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
+    title = "Search by language"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"language": {"$regex": search, "$options": "i"}}
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
+
+
+def search_books_by_isbn(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    """
+    Search books by ISBN
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
+    title = "Search by ISBN"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"ISBN": {"$regex": search, "$options": "i"}}
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
+
+
+def search_books_by_copy_right(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    """
+    Search books by copy right
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
+    title = "Search by ISBN"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"copy_right": {"$regex": search, "$options": "i"}}
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
+
+
 def search_books_menu(
     *,
     session: pymongo.mongo_client.client_session,
@@ -1629,15 +1740,19 @@ def search_books_menu(
     print("-" * 79)
     print("Search for a book")
     print("-" * 79)
-    print("1. Search by title")
-    print("2. Search by author name")
-    print("3. Search by author pseudonym")
-    print("4. Search by genre")
-    print("5. Search by sub-genre")
-    print("6. Search by set year")
-    print("7. Search by set country")
-    print("8. Search by main character")
-    print("9. Back to Main Menu")
+    print(" 1. Search by title")
+    print(" 2. Search by author name")
+    print(" 3. Search by author pseudonym")
+    print(" 4. Search by genre")
+    print(" 5. Search by sub-genre")
+    print(" 6. Search by main character")
+    print(" 7. Search by set year")
+    print(" 8. Search by set country")
+    print(" 9. Search by language")
+    print("10. Search by published year")
+    print("11. Search by copy right")
+    print("12. Search by ISBN")
+    print("13. Back to Main Menu")
     print("-" * 79)
     choice = get_choice("Enter your choice: ", 9)
     match choice:
@@ -1652,12 +1767,20 @@ def search_books_menu(
         case 5:
             search_books_by_sub_genre(session=session, db=db)
         case 6:
-            search_books_by_set_year(session=session, db=db)
-        case 7:
-            search_books_by_set_main_location(session=session, db=db)
-        case 8:
             search_books_by_main_character(session=session, db=db)
+        case 7:
+            search_books_by_set_year(session=session, db=db)
+        case 8:
+            search_books_by_set_main_location(session=session, db=db)
         case 9:
+            search_books_by_language(session=session, db=db)
+        case 10:
+            print("search")
+        case 11:
+            search_books_by_copy_right(session=session, db=db)
+        case 12:
+            search_books_by_isbn(session=session, db=db)
+        case 13:
             pass
 
 
