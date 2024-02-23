@@ -50,7 +50,13 @@ def initialize_database(
     """
     if "books" in db.list_collection_names(session=session):
         return
-    db.create_collection("books", session=session)
+    db.create_collection(
+        "books",
+        validator=BOOKS_SCHEMA,
+        validationLevel="strict",
+        validationAction="error",
+        session=session,
+    )
     if "books" not in db.list_collection_names(session=session):
         raise RuntimeError("Failed to create books collection")
     return
@@ -108,7 +114,7 @@ def save_file_gridfs(
 
     Returns: The id of the file in GridFS
     """
-    if file_path[-5:] != ".epub" and file_path[-5:] != ".epub":
+    if file_path[-5:] != ".epub" and file_path[-5:] != ".pdf":
         print("-" * 79)
         raise BadEpub(f"File {file_path} is not an epub or pdf file.")
 
@@ -164,6 +170,11 @@ def add_books(
             )
         except BadEpub as error_message:
             raise BadEpub(error_message)
+        if i["file_path"][-5:] == ".epub":
+            i["file_type"] = "EPUB"
+        elif i["file_path"][-4:] == ".pdf":
+            i["file_type"] = "PDF"
+
         db.books.insert_one(i, session=session)
 
     return
@@ -186,20 +197,23 @@ def add_book_menu(
     print("-" * 79)
     print("Add a book")
     print("-" * 79)
-    book = {
-        "title": input("Enter the title of the book: "),
-        "language": input("Enter the language of the book: "),
-        "published_date": input("Enter the published date of the book: "),
-        "copy_right": input("Enter the copy-right of the book: "),
-        "file_name": input("Enter the file name of the book: "),
-        "file_path": input("Enter the file path of the book: "),
-    }
+
+    book = {}
+
+    while True:
+        book["title"] = input("Enter the title of the book (required): ")
+        if book["title"] == "":
+            print("Invalid input")
+            continue
+        break
+
     authors = []
     while True:
-        author = {
-            "name": input("Enter the name of the author: "),
-            "pseudonym": input("Enter the pseudonym of the author: "),
-        }
+        author = {"name": input("Enter the name of the author (required): ")}
+        if author["name"] == "":
+            print("Invalid input")
+            continue
+        author["pseudonym"] = input("Enter the pseudonym of the author: ")
         authors.append(author)
         while True:
             again = input("Add another Author? (y/n): ")
@@ -207,12 +221,23 @@ def add_book_menu(
                 print("Invalid input")
                 continue
             break
-        if again == "n":
+        if again in ["n", "N"]:
             break
     book["author"] = authors
+
+    while True:
+        book["language"] = input("Enter the language of the book (required): ")
+        if book["language"] == "":
+            print("Invalid input")
+            continue
+        break
+
     genres = []
     while True:
-        genre = input("Enter the genre of the book: ")
+        genre = input("Enter the genre of the book (required): ")
+        if genre == "":
+            print("Invalid input")
+            continue
         genres.append(genre)
         while True:
             again = input("Add another genre? (y/n): ")
@@ -220,13 +245,16 @@ def add_book_menu(
                 print("Invalid input")
                 continue
             break
-        if again == "n":
+        if again in ["n", "N"]:
             break
-
     book["genres"] = genres
+
     sub_genres = []
     while True:
-        sub_genre = input("Enter the sub-genre of the book: ")
+        sub_genre = input("Enter the sub-genre of the book (required): ")
+        if sub_genre == "":
+            print("Invalid input")
+            continue
         sub_genres.append(sub_genre)
         while True:
             again = input("Add another sub-genre? (y/n): ")
@@ -237,6 +265,80 @@ def add_book_menu(
         if again == "n":
             break
     book["sub_genres"] = sub_genres
+
+    main_characters = []
+    while True:
+        main_character = input("Enter the main character of the book (required): ")
+        if main_character == "":
+            print("Invalid input")
+            continue
+        main_characters.append(main_character)
+        while True:
+            again = input("Add another main character? (y/n): ")
+            if again not in ["y", "Y", "n", "N"]:
+                print("Invalid input")
+                continue
+            break
+        if again == "n":
+            break
+    book["main_characters"] = main_characters
+
+    while True:
+        published_date = input("Enter the published date of the book (required): ")
+        if published_date == "":
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        # if published_data not YYYY/MM/DD
+        if len(published_date) != 10:
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        if not published_date[0:4].isdigit():
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        if not published_date[5:7].isdigit():
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        if not published_date[8:10].isdigit():
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        if published_date[4] != "/" or published_date[7] != "/":
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        book["published_date"] = datetime.datetime.strptime(published_date, "%Y/%m/%d")
+        break
+
+    book["set_year"] = input("Enter the set year of the book: ")
+    book["set_main_location"] = input("Enter the set country of the book: ")
+    book["copy_right"] = input("Enter the copy-right of the book: ")
+    while True:
+        book["ISBN"] = input("Enter the ISBN of the book (required): ")
+        if book["ISBN"] == "":
+            print("Invalid input")
+            continue
+        break
+
+    while True:
+        book["file_name"] = input("Enter the file name of the book (required): ")
+        if book["file_name"] == "":
+            print("Invalid input")
+            continue
+        if book["file_name"][-5:] != ".epub" and book["file_name"][-4:] != ".pdf":
+            print("Invalid file name (must end with .epub or .pdf)")
+            continue
+        break
+
+    while True:
+        book["file_path"] = input("Enter the file path of the book (required): ")
+        if book["file_path"] == "":
+            print("Invalid input")
+            continue
+        if book["file_path"][-5:] != ".epub" and book["file_path"][-4:] != ".pdf":
+            print("Invalid file path (must end with .epub or .pdf)")
+            continue
+        elif not os.path.isfile(book["file_path"]):
+            print("Invalid file path")
+            continue
+        break
 
     try:
         add_books(session=session, db=db, books=[book])
@@ -274,7 +376,25 @@ def book_data_menu(
     print("-" * 79)
     print("Book Data")
     print("-" * 79)
-    print(get_book_data(session=session, db=db, book_id=book_id))
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    for key, value in book.items():
+        if key in ["_id", "file_id"]:
+            continue
+        elif key == "author":
+            print(f"{key}:")
+            for author in value:
+                for k, v in author.items():
+                    print(f"    {k}: {v}")
+                print("- " * 39)
+
+            continue
+        elif key in ["genres", "sub_genres", "main_characters"]:
+            print(f"{key}:")
+            for v in value:
+                print(f"   - {v}")
+            continue
+        else:
+            print(f"{key}: {value}")
     print("-" * 79)
     print("1. Download book")
     print("2. Back to Main Menu")
@@ -289,6 +409,7 @@ def list_book_pagination(
     page: int = 1,
     page_size: int = 5,
     filter_dict: dict = None,
+    file_type: str = "ALL",
 ) -> tuple:
     """
     List books with pagination from the database
@@ -299,25 +420,31 @@ def list_book_pagination(
         page: current page
         page_size: number of books per page
         filter_dict: filter to apply to the books
+        file_type: type of file to filter
 
     Returns: metadata and data
     """
+    filter_books = []
+    if filter_dict:
+        filter_books.append({"$match": filter_dict})
+    if file_type != "ALL":
+        filter_books.append({"$match": {"file_type": file_type}})
+    filter_books.append(
+        {
+            "$facet": {
+                "metadata": [
+                    {"$count": "total_count"},
+                    {"$addFields": {"page": page}},
+                ],
+                "data": [
+                    {"$skip": (page - 1) * page_size},
+                    {"$limit": page_size},
+                ],
+            }
+        },
+    )
     books = db.books.aggregate(
-        [
-            {"$match": filter_dict} if filter_dict else {"$match": {}},
-            {
-                "$facet": {
-                    "metadata": [
-                        {"$count": "total_count"},
-                        {"$addFields": {"page": page}},
-                    ],
-                    "data": [
-                        {"$skip": (page - 1) * page_size},
-                        {"$limit": page_size},
-                    ],
-                }
-            },
-        ],
+        filter_books,
         session=session,
     )
     books_data = list(books)
@@ -332,6 +459,7 @@ def print_books(
     db: pymongo.mongo_client.database.Database,
     title: str,
     filter_dict: dict = None,
+    file_type: str = "ALL",
 ):
     page = 1
     page_size = 5
@@ -345,6 +473,7 @@ def print_books(
             page=page,
             page_size=page_size,
             filter_dict=filter_dict,
+            file_type=file_type,
         )
         if metadata is None:
             print()
@@ -440,8 +569,20 @@ def search_books_by_title(
             print("Invalid input")
             continue
         break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
     filter_dict = {"title": {"$regex": search, "$options": "i"}}
-    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
 
 
 def search_books_by_author_name(
@@ -459,10 +600,23 @@ def search_books_by_author_name(
             print("Invalid input")
             continue
         break
+
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
     filter_dict = {
         "author": {"$elemMatch": {"name": {"$regex": search, "$options": "i"}}}
     }
-    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
 
 
 def search_books_by_author_pseudonym(
@@ -480,10 +634,22 @@ def search_books_by_author_pseudonym(
             print("Invalid input")
             continue
         break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
     filter_dict = {
         "author": {"$elemMatch": {"pseudonym": {"$regex": search, "$options": "i"}}}
     }
-    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
 
 
 def search_books_by_genre(
@@ -501,8 +667,20 @@ def search_books_by_genre(
             print("Invalid input")
             continue
         break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
     filter_dict = {"genres": {"$regex": search, "$options": "i"}}
-    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
 
 
 def search_books_by_sub_genre(
@@ -520,8 +698,20 @@ def search_books_by_sub_genre(
             print("Invalid input")
             continue
         break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
     filter_dict = {"sub_genres": {"$regex": search, "$options": "i"}}
-    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
 
 
 def search_books_by_set_year(
@@ -539,11 +729,23 @@ def search_books_by_set_year(
             print("Invalid input")
             continue
         break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
     filter_dict = {"set_year": {"$eq": int(search)}}
-    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
 
 
-def search_books_by_set_country(
+def search_books_by_set_main_location(
     *,
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
@@ -558,8 +760,20 @@ def search_books_by_set_country(
             print("Invalid input")
             continue
         break
-    filter_dict = {"set_country": {"$regex": search, "$options": "i"}}
-    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"set_main_location": {"$regex": search, "$options": "i"}}
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
 
 
 def search_books_by_main_character(
@@ -577,8 +791,20 @@ def search_books_by_main_character(
             print("Invalid input")
             continue
         break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
     filter_dict = {"main_characters": {"$regex": search, "$options": "i"}}
-    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
 
 
 def search_books_menu(
@@ -614,7 +840,7 @@ def search_books_menu(
         case 6:
             search_books_by_set_year(session=session, db=db)
         case 7:
-            search_books_by_set_country(session=session, db=db)
+            search_books_by_set_main_location(session=session, db=db)
         case 8:
             search_books_by_main_character(session=session, db=db)
         case 9:
@@ -681,21 +907,20 @@ def main():
     return EXIT_SUCCESS
 
 
-books_schema = {
+BOOKS_SCHEMA = {
     "$jsonSchema": {
         "bsonType": "object",
         "required": [
-            "Title",
-            "Author",
-            "Language",
+            "title",
+            "author",
+            "language",
             "ISBN",
-            "Published_date",
-            "Genres",
-            "Sub_genres",
-            "Copy_right",
+            "published_date",
+            "genres",
+            "sub_genres",
             "main_characters",
-            "File_name",
-            "File_id",
+            "file_name",
+            "file_id",
         ],
         "properties": {
             "title": {
@@ -738,11 +963,11 @@ books_schema = {
                 "description": "Sub-genres of the book",
             },
             "set_year": {
-                "bsonType": "int",
+                "bsonType": "string",
                 "minimum": 1,
                 "description": "Set year of the book",
             },
-            "set_country": {
+            "set_main_location": {
                 "bsonType": "string",
                 "description": "Set country of the book",
             },
@@ -762,6 +987,10 @@ books_schema = {
                 },
                 "description": "Main characters of the book",
             },
+            "file_type": {
+                "bsonType": "string",
+                "description": "File type of the book",
+            },
             "file_name": {
                 "bsonType": "string",
                 "description": "File name of the book",
@@ -778,7 +1007,9 @@ BOOKS_DATA = [
     {
         "title": "Frankenstein; Or, The Modern Prometheus",
         "author": [
-            {"name": "Mary Wollstonecraft Shelley", "pseudonym": "Mary Shelley"}
+            {"name": "Mary Wollstonecraft Shelley", "pseudonym": "Mary Shelley"},
+            {"name": "Test Author", "pseudonym": "Test Pseudonym"},
+            {"name": "Test Author2"},
         ],
         "language": "English",
         "published_date": datetime.datetime(1993, 10, 1),
@@ -790,8 +1021,8 @@ BOOKS_DATA = [
             "Elizabeth Lavenza",
             "Henry Clerval",
         ],
-        "set_year": 1797,
-        "set_country": "Switzerland",
+        "set_year": "1797",
+        "set_main_location": "Switzerland",
         "copy_right": "Public domain in the USA.",
         "file_name": "Frankenstein.epub",
         "file_path": "./books/Frankenstein.epub",
