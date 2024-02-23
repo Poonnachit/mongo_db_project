@@ -34,34 +34,6 @@ def get_choice(prompt: str, max_choice: int) -> int:
             print("Invalid choice!")
 
 
-def initialize_database(
-    *,
-    session: pymongo.mongo_client.client_session,
-    db: pymongo.mongo_client.database.Database,
-) -> None:
-    """
-    Initialize the database by creating the books collection if it does not exist
-
-    Args:
-        session: session to connect to the database
-        db: use in which database
-
-    Returns: None
-    """
-    if "books" in db.list_collection_names(session=session):
-        return
-    db.create_collection(
-        "books",
-        validator=BOOKS_SCHEMA,
-        validationLevel="strict",
-        validationAction="error",
-        session=session,
-    )
-    if "books" not in db.list_collection_names(session=session):
-        raise RuntimeError("Failed to create books collection")
-    return
-
-
 def download_file_by_id(
     *,
     session: pymongo.mongo_client.client_session,
@@ -144,11 +116,32 @@ def save_file_gridfs(
     return the_id
 
 
+def delete_file_gridfs(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    file_id: str,
+) -> None:
+    """
+    Delete a file from GridFS
+
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        file_id: id of the file to delete
+
+    Returns: None
+    """
+    fs = gridfs.GridFS(db)
+    fs.delete(file_id, session=session)
+    return
+
+
 def add_books(
     *,
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
-    books,
+    books: list,
 ) -> None:
     """
     Add books to the database
@@ -990,6 +983,107 @@ def edit_book_metadata(
         pass
 
 
+def change_book_file(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Change the file of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Change Book File")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current File Name: {book['file_name']}")
+    while True:
+        new_file_name = input("Enter the new file name: ")
+        if new_file_name == "":
+            print("Invalid input")
+            continue
+        if new_file_name[-5:] != ".epub" and new_file_name[-4:] != ".pdf":
+            print("Invalid file name (must end with .epub or .pdf)")
+            continue
+        break
+
+    while True:
+        new_file_path = input("Enter the new file path: ")
+        if new_file_path == "":
+            print("Invalid input")
+            continue
+        if new_file_path[-5:] != ".epub" and new_file_path[-4:] != ".pdf":
+            print("Invalid file path (must end with .epub or .pdf)")
+            continue
+        elif not os.path.isfile(new_file_path):
+            print("Invalid file path")
+            continue
+        break
+
+    try:
+        file_id = save_file_gridfs(
+            db=db,
+            session=session,
+            file_name=new_file_name,
+            file_path=new_file_path,
+        )
+    except BadEpub as error_message:
+        print(error_message)
+        return
+
+    if new_file_path[-5:] == ".epub":
+        new_file_type = "EPUB"
+    elif new_file_path[-4:] == ".pdf":
+        new_file_type = "PDF"
+
+    db.books.update_one(
+        {"_id": book_id},
+        {
+            "$set": {
+                "file_id": file_id,
+                "file_name": new_file_name,
+                "file_path": new_file_path,
+                "file_type": new_file_type,
+            }
+        },
+    )
+    print("File updated")
+
+
+def delete_book(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    print("-" * 79)
+    print("Delete Book")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Title: {book['title']}")
+    print(f"Author:")
+    for i in range(len(book["author"])):
+        author = book["author"][i]
+        if "pseudonym" in author:
+            print(f"   - {author['name']} ({author['pseudonym']})")
+        else:
+            print(f"   - {author['name']}")
+    print("Do you want to delete this book?")
+    print("1. Yes")
+    print("2. No")
+    choice = get_choice("Enter your choice: ", 2)
+    if choice == 1:
+        delete_file_gridfs(db=db, session=session, file_id=book["file_id"])
+        db.books.delete_one({"_id": book_id})
+        print("Book deleted")
+    elif choice == 2:
+        pass
+
+
 def book_data_menu(
     *,
     session: pymongo.mongo_client.client_session,
@@ -1027,9 +1121,9 @@ def book_data_menu(
             print(f"{key}: {value}")
     print("-" * 79)
     print("1. Edit Metadata")
-    print("2. Change File")
-    print("3. Delete Book")
-    print("4. Download Book")
+    print("2. Change Book File")
+    print("3. Download Book")
+    print("4. Delete Book")
     print("5. Back")
     print("-" * 79)
     choice = get_choice("Enter your choice: ", 5)
@@ -1037,11 +1131,17 @@ def book_data_menu(
         case 1:
             edit_book_metadata(session=session, db=db, book_id=book_id)
         case 2:
-            print("Change File")
+            change_book_file(session=session, db=db, book_id=book_id)
         case 3:
-            print("Delete Book")
+            download_file_by_id(
+                db=db,
+                session=session,
+                file_id=book["file_id"],
+                file_name=book["file_name"],
+            )
         case 4:
-            print("Download Book")
+            delete_book(session=session, db=db, book_id=book_id)
+
         case 5:
             pass
 
@@ -1520,18 +1620,6 @@ def main():
         client.start_session(causal_consistency=True) as session,
     ):
         db = client.get_database("books")
-        db.drop_collection("books")
-        try:
-            initialize_database(session=session, db=db)
-        except RuntimeError as error_message:
-            print("Failed to initialize database: ", error_message)
-            return EXIT_FAILURE
-
-        try:
-            add_books(session=session, db=db, books=BOOKS_DATA)
-        except BadEpub as error_message:
-            print(error_message)
-            return EXIT_FAILURE
 
         try:
             while True:
@@ -1549,338 +1637,6 @@ def main():
             print("")
             print("Goodbye!")
     return EXIT_SUCCESS
-
-
-BOOKS_SCHEMA = {
-    "$jsonSchema": {
-        "bsonType": "object",
-        "required": [
-            "title",
-            "author",
-            "language",
-            "ISBN",
-            "published_date",
-            "genres",
-            "sub_genres",
-            "main_characters",
-            "file_name",
-            "file_id",
-        ],
-        "properties": {
-            "title": {
-                "bsonType": "string",
-                "minimum": 1,
-                "description": "Title of the book",
-            },
-            "author": {
-                "bsonType": "array",
-                "items": {
-                    "bsonType": "object",
-                    "required": ["name"],
-                    "properties": {
-                        "name": {
-                            "bsonType": "string",
-                            "minimum": 1,
-                            "description": "Name of the author",
-                        },
-                        "pseudonym": {
-                            "bsonType": "string",
-                            "description": "Pseudonym of the author",
-                        },
-                    },
-                },
-                "description": "Authors of the book",
-            },
-            "language": {"bsonType": "string", "description": "Language of the book"},
-            "published_date": {
-                "bsonType": "date",
-                "description": "Published date of the book",
-            },
-            "genres": {
-                "bsonType": "array",
-                "items": {"bsonType": "string", "description": "Genre of the book"},
-                "description": "Genres of the book",
-            },
-            "sub_genres": {
-                "bsonType": "array",
-                "items": {"bsonType": "string", "description": "Sub-genre of the book"},
-                "description": "Sub-genres of the book",
-            },
-            "set_year": {
-                "bsonType": "string",
-                "minimum": 1,
-                "description": "Set year of the book",
-            },
-            "set_main_location": {
-                "bsonType": "string",
-                "description": "Set country of the book",
-            },
-            "copy_right": {
-                "bsonType": "string",
-                "description": "Copy-right of the book",
-            },
-            "ISBN": {
-                "bsonType": "string",
-                "description": "ISBN of the book",
-            },
-            "main_characters": {
-                "bsonType": "array",
-                "items": {
-                    "bsonType": "string",
-                    "description": "Main characters of the book",
-                },
-                "description": "Main characters of the book",
-            },
-            "file_type": {
-                "bsonType": "string",
-                "description": "File type of the book",
-            },
-            "file_name": {
-                "bsonType": "string",
-                "description": "File name of the book",
-            },
-            "file_id": {
-                "bsonType": "objectId",
-                "description": "File id of the book",
-            },
-        },
-    }
-}
-
-BOOKS_DATA = [
-    {
-        "title": "Frankenstein; Or, The Modern Prometheus",
-        "author": [
-            {"name": "Mary Wollstonecraft Shelley", "pseudonym": "Mary Shelley"},
-            {"name": "Test Author", "pseudonym": "Test Pseudonym"},
-            {"name": "Test Author2"},
-        ],
-        "language": "English",
-        "published_date": datetime.datetime(1993, 10, 1),
-        "genres": ["Horror", "Gothic", "Science Fiction"],
-        "sub_genres": ["Gothic Horror", "Science Fiction Horror"],
-        "main_characters": [
-            "Victor Frankenstein",
-            "The Monster",
-            "Elizabeth Lavenza",
-            "Henry Clerval",
-        ],
-        "set_year": "1797",
-        "set_main_location": "Switzerland",
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Frankenstein.epub",
-        "file_path": "./books/Frankenstein.epub",
-        "ISBN": "978-1-59308-510-1",
-    },
-    {
-        "title": "Moby Dick; Or, The Whale",
-        "author": [{"name": "Herman Melville"}],
-        "language": "English",
-        "published_date": datetime.datetime(2001, 7, 1),
-        "genres": ["Adventure"],
-        "sub_genres": ["Whales"],
-        "main_characters": ["Captain Ahab", "Ishmael", "Queequeg", "Moby Dick"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Moby-Dick.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "978-1-59308-510-1",
-    },
-    {
-        "title": "book_test2",
-        "author": [{"name": "test2 test2"}],
-        "language": "test2",
-        "published_date": datetime.datetime(2001, 7, 1),
-        "genres": ["Adventure"],
-        "sub_genres": ["Whales"],
-        "main_characters": ["Captain Ahab", "Ishmael", "Queequeg", "Moby Dick"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test2.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "978-1-59308-510-1",
-    },
-    {
-        "title": "book_test3",
-        "author": [{"name": "test3 test3"}],
-        "language": "test3",
-        "published_date": datetime.datetime(2003, 9, 15),
-        "genres": ["Mystery"],
-        "sub_genres": ["Detective"],
-        "main_characters": ["Sherlock Holmes", "Dr. Watson"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test3.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "978-1-59308-510-1",
-    },
-    {
-        "title": "book_test4",
-        "author": [{"name": "test4 test4"}],
-        "language": "test4",
-        "published_date": datetime.datetime(2005, 11, 23),
-        "genres": ["Sci-Fi"],
-        "sub_genres": ["Space Opera"],
-        "main_characters": ["Captain Kirk", "Spock", "Dr. McCoy"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test4.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "978-1-59308-510-1",
-    },
-    {
-        "title": "book_test5",
-        "author": [{"name": "test5 test5"}],
-        "language": "test5",
-        "published_date": datetime.datetime(2007, 2, 14),
-        "genres": ["Romance"],
-        "sub_genres": ["Historical Romance"],
-        "main_characters": ["Elizabeth Bennet", "Mr. Darcy"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test5.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "978-1-59308-510-1",
-    },
-    {
-        "title": "book_test6",
-        "author": [{"name": "test6 test6"}],
-        "language": "test6",
-        "published_date": datetime.datetime(2009, 5, 20),
-        "genres": ["Fantasy"],
-        "sub_genres": ["Epic Fantasy"],
-        "main_characters": ["Frodo Baggins", "Gandalf", "Aragorn"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test6.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "978-1-59308-510-1",
-    },
-    {
-        "title": "book_test7",
-        "author": [{"name": "test7 test7"}],
-        "language": "test7",
-        "published_date": datetime.datetime(2011, 8, 5),
-        "genres": ["Horror"],
-        "sub_genres": ["Gothic Horror"],
-        "main_characters": ["Dracula", "Van Helsing"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test7.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "978-1-59308-510-1",
-    },
-    {
-        "title": "book_test8",
-        "author": [{"name": "test8 test8"}],
-        "language": "test8",
-        "published_date": datetime.datetime(2013, 10, 31),
-        "genres": ["Thriller"],
-        "sub_genres": ["Psychological Thriller"],
-        "main_characters": ["Clarice Starling", "Hannibal Lecter"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test8.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "978-1-59308-510-1",
-    },
-    {
-        "title": "book_test9",
-        "author": [{"name": "test9 test9"}],
-        "language": "test9",
-        "published_date": datetime.datetime(2015, 12, 25),
-        "genres": ["Non-fiction"],
-        "sub_genres": ["Biography"],
-        "main_characters": ["Albert Einstein"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test9.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
-    },
-    {
-        "title": "book_test10",
-        "author": [{"name": "test10 test10"}],
-        "language": "test10",
-        "published_date": datetime.datetime(2017, 3, 17),
-        "genres": ["Comedy"],
-        "sub_genres": ["Satire"],
-        "main_characters": ["Bertie Wooster", "Jeeves"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test10.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
-    },
-    {
-        "title": "book_test11",
-        "author": [{"name": "test11 test11"}],
-        "language": "test11",
-        "published_date": datetime.datetime(2019, 6, 21),
-        "genres": ["Children's Literature"],
-        "sub_genres": ["Fairy Tales"],
-        "main_characters": ["Cinderella", "Snow White"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test11.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
-    },
-    {
-        "title": "book_test12",
-        "author": [{"name": "test12 test12"}],
-        "language": "test12",
-        "published_date": datetime.datetime(2021, 9, 30),
-        "genres": ["Poetry"],
-        "sub_genres": ["Epic Poetry"],
-        "main_characters": ["Odysseus"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test12.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
-    },
-    {
-        "title": "book_test13",
-        "author": [{"name": "test13 test13"}],
-        "language": "test13",
-        "published_date": datetime.datetime(2022, 1, 1),
-        "genres": ["Historical Fiction"],
-        "sub_genres": ["Military History"],
-        "main_characters": ["Napoleon Bonaparte", "Duke of Wellington"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test13.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
-    },
-    {
-        "title": "book_test14",
-        "author": [{"name": "test14 test14"}],
-        "language": "test14",
-        "published_date": datetime.datetime(2022, 4, 15),
-        "genres": ["Science"],
-        "sub_genres": ["Astronomy"],
-        "main_characters": ["Neil Armstrong", "Buzz Aldrin"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test14.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
-    },
-    {
-        "title": "book_test15",
-        "author": [{"name": "test15 test15"}],
-        "language": "test15",
-        "published_date": datetime.datetime(2022, 7, 4),
-        "genres": ["Self-help"],
-        "sub_genres": ["Motivational"],
-        "main_characters": ["Tony Robbins"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test15.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
-    },
-    {
-        "title": "book_test16",
-        "author": [{"name": "test16 test16"}],
-        "language": "test16",
-        "published_date": datetime.datetime(2022, 10, 31),
-        "genres": ["True Crime"],
-        "sub_genres": ["Investigative Journalism"],
-        "main_characters": ["Ted Bundy"],
-        "copy_right": "Public domain in the USA.",
-        "file_name": "Test16.epub",
-        "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
-    },
-]
 
 
 EXIT_SUCCESS = 0
