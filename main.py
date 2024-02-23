@@ -214,6 +214,8 @@ def add_book_menu(
             print("Invalid input")
             continue
         author["pseudonym"] = input("Enter the pseudonym of the author: ")
+        if author["pseudonym"] == "":
+            del author["pseudonym"]
         authors.append(author)
         while True:
             again = input("Add another Author? (y/n): ")
@@ -342,6 +344,7 @@ def add_book_menu(
 
     try:
         add_books(session=session, db=db, books=[book])
+        print("Book added")
     except BadEpub as error_message:
         print(error_message)
         return
@@ -367,26 +370,653 @@ def get_book_data(
     return book
 
 
+def edit_book_title(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the title of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Title")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Title: {book['title']}")
+    while True:
+        new_title = input("Enter the new title: ")
+        if new_title == "":
+            print("Invalid input")
+            continue
+        break
+
+    db.books.update_one(
+        {"_id": book_id},
+        {"$set": {"title": new_title}},
+    )
+    print("Title updated")
+
+
+def edit_book_author(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the author of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Author")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Author: ")
+    for i in range(len(book["author"])):
+        author = book["author"][i]
+        if "pseudonym" in author:
+            print(f"{author['name']} ({author['pseudonym']})")
+        else:
+            print(f"{author['name']}")
+    print("1. Add Author")
+    print("2. Remove Author")
+    print("3. Back")
+    choice = get_choice("Enter your choice: ", 3)
+    if choice == 1:
+        new_author = []
+        while True:
+            author = {"name": input("Enter the name of the author: ")}
+            if author["name"] == "":
+                print("Invalid input")
+                continue
+            author["pseudonym"] = input("Enter the pseudonym of the author: ")
+            if author["pseudonym"] == "":
+                del author["pseudonym"]
+            new_author.append(author)
+            while True:
+                again = input("Add another Author? (y/n): ")
+                if again not in ["y", "Y", "n", "N"]:
+                    print("Invalid input")
+                    continue
+                break
+            if again in ["n", "N"]:
+                break
+
+        db.books.update_one(
+            {"_id": book_id},
+            {"$push": {"author": {"$each": new_author}}},
+        )
+        print("Author added")
+    elif choice == 2:
+        print("-" * 79)
+        print("Remove Author")
+        print("-" * 79)
+        for i in range(len(book["author"])):
+            author = book["author"][i]
+            if "pseudonym" in author:
+                print(f"{i+1}. {author['name']} ({author['pseudonym']})")
+            else:
+                print(f"{i+1}. {author['name']}")
+        print("which author do you want to remove?")
+        choice = get_choice("Enter your choice: ", len(book["author"]))
+        db.books.update_one(
+            {"_id": book_id},
+            {"$pull": {"author": book["author"][choice - 1]}},
+        )
+
+        print("Author removed")
+    elif choice == 3:
+        pass
+
+
+def edit_book_language(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the language of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Language")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Language: {book['language']}")
+    while True:
+        new_language = input("Enter the new language: ")
+        if new_language == "":
+            print("Invalid input")
+            continue
+        break
+
+    db.books.update_one(
+        {"_id": book_id},
+        {"$set": {"language": new_language}},
+    )
+    print("Language updated")
+
+
+def edit_published_date(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the published date of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Published Date")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Published Date: {book['published_date']}")
+    while True:
+        published_date = input("Enter the published date of the book (required): ")
+        if published_date == "":
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        # if published_data not YYYY/MM/DD
+        if len(published_date) != 10:
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        if not published_date[0:4].isdigit():
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        if not published_date[5:7].isdigit():
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        if not published_date[8:10].isdigit():
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        if published_date[4] != "/" or published_date[7] != "/":
+            print("Invalid input (YYYY/MM/DD) Example. 1993/10/01")
+            continue
+        db.books.update_one(
+            {"_id": book_id},
+            {
+                "$set": {
+                    "published_date": datetime.datetime.strptime(
+                        published_date, "%Y/%m/%d"
+                    )
+                }
+            },
+        )
+        print("Published Date updated")
+        break
+
+
+def edit_genres(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the genres of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Genres")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Genres: ")
+    for i in range(len(book["genres"])):
+        print(f"{i+1}. {book['genres'][i]}")
+    print("1. Add Genre")
+    print("2. Remove Genre")
+    print("3. Back")
+    choice = get_choice("Enter your choice: ", 3)
+    if choice == 1:
+        new_genres = []
+        while True:
+            genre = input("Enter the genre of the book: ")
+            if genre == "":
+                print("Invalid input")
+                continue
+            new_genres.append(genre)
+            while True:
+                again = input("Add another genre? (y/n): ")
+                if again not in ["y", "Y", "n", "N"]:
+                    print("Invalid input")
+                    continue
+                break
+            if again in ["n", "N"]:
+                break
+
+        db.books.update_one(
+            {"_id": book_id},
+            {"$push": {"genres": {"$each": new_genres}}},
+        )
+        print("Genre added")
+    elif choice == 2:
+        print("-" * 79)
+        print("Remove Genre")
+        print("-" * 79)
+        for i in range(len(book["genres"])):
+            print(f"{i+1}. {book['genres'][i]}")
+        print("which genre do you want to remove?")
+        choice = get_choice("Enter your choice: ", len(book["genres"]))
+        db.books.update_one(
+            {"_id": book_id},
+            {"$pull": {"genres": book["genres"][choice - 1]}},
+        )
+
+        print("Genre removed")
+    elif choice == 3:
+        pass
+
+
+def edit_sub_genres(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the sub-genres of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Sub-genres")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Sub-genres: ")
+    for i in range(len(book["sub_genres"])):
+        print(f"{i+1}. {book['sub_genres'][i]}")
+    print("1. Add Sub-genre")
+    print("2. Remove Sub-genre")
+    print("3. Back")
+    choice = get_choice("Enter your choice: ", 3)
+    if choice == 1:
+        new_sub_genres = []
+        while True:
+            sub_genre = input("Enter the sub-genre of the book: ")
+            if sub_genre == "":
+                print("Invalid input")
+                continue
+            new_sub_genres.append(sub_genre)
+            while True:
+                again = input("Add another sub-genre? (y/n): ")
+                if again not in ["y", "Y", "n", "N"]:
+                    print("Invalid input")
+                    continue
+                break
+            if again in ["n", "N"]:
+                break
+
+        db.books.update_one(
+            {"_id": book_id},
+            {"$push": {"sub_genres": {"$each": new_sub_genres}}},
+        )
+        print("Sub-genre added")
+    elif choice == 2:
+        print("-" * 79)
+        print("Remove Sub-genre")
+        print("-" * 79)
+        for i in range(len(book["sub_genres"])):
+            print(f"{i+1}. {book['sub_genres'][i]}")
+        print("which sub-genre do you want to remove?")
+        choice = get_choice("Enter your choice: ", len(book["sub_genres"]))
+        db.books.update_one(
+            {"_id": book_id},
+            {"$pull": {"sub_genres": book["sub_genres"][choice - 1]}},
+        )
+
+        print("Sub-genre removed")
+    elif choice == 3:
+        pass
+
+
+def edit_main_characters(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the main characters of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Main Characters")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Main Characters: ")
+    for i in range(len(book["main_characters"])):
+        print(f"{i+1}. {book['main_characters'][i]}")
+    print("1. Add Main Character")
+    print("2. Remove Main Character")
+    print("3. Back")
+    choice = get_choice("Enter your choice: ", 3)
+    if choice == 1:
+        new_main_characters = []
+        while True:
+            main_character = input("Enter the main character of the book: ")
+            if main_character == "":
+                print("Invalid input")
+                continue
+            new_main_characters.append(main_character)
+            while True:
+                again = input("Add another main character? (y/n): ")
+                if again not in ["y", "Y", "n", "N"]:
+                    print("Invalid input")
+                    continue
+                break
+            if again in ["n", "N"]:
+                break
+
+        db.books.update_one(
+            {"_id": book_id},
+            {"$push": {"main_characters": {"$each": new_main_characters}}},
+        )
+        print("Main character added")
+    elif choice == 2:
+        print("-" * 79)
+        print("Remove Main Character")
+        print("-" * 79)
+        for i in range(len(book["main_characters"])):
+            print(f"{i+1}. {book['main_characters'][i]}")
+        print("which main character do you want to remove?")
+        choice = get_choice("Enter your choice: ", len(book["main_characters"]))
+        db.books.update_one(
+            {"_id": book_id},
+            {"$pull": {"main_characters": book["main_characters"][choice - 1]}},
+        )
+
+        print("Main character removed")
+    elif choice == 3:
+        pass
+
+
+def edit_isbn(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the ISBN of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit ISBN")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current ISBN: {book['ISBN']}")
+    while True:
+        new_isbn = input("Enter the new ISBN: ")
+        if new_isbn == "":
+            print("Invalid input")
+            continue
+        break
+
+    db.books.update_one(
+        {"_id": book_id},
+        {"$set": {"ISBN": new_isbn}},
+    )
+    print("ISBN updated")
+
+
+def edit_set_year(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the set year of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Set Year")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Set Year: {book['set_year']}")
+    while True:
+        new_set_year = input("Enter the new set year: ")
+        if new_set_year == "":
+            print("Invalid input")
+            continue
+        break
+
+    db.books.update_one(
+        {"_id": book_id},
+        {"$set": {"set_year": new_set_year}},
+    )
+    print("Set Year updated")
+
+
+def edit_set_main_location(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the set main location of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Set Main Location")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Set Main Location: {book['set_main_location']}")
+    while True:
+        new_set_main_location = input("Enter the new set main location: ")
+        if new_set_main_location == "":
+            print("Invalid input")
+            continue
+        break
+
+    db.books.update_one(
+        {"_id": book_id},
+        {"$set": {"set_main_location": new_set_main_location}},
+    )
+    print("Set Main Location updated")
+
+
+def edit_copy_right(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the copy right of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Copy Right")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f"Current Copy Right: {book['copy_right']}")
+    while True:
+        new_copy_right = input("Enter the new copy right: ")
+        if new_copy_right == "":
+            print("Invalid input")
+            continue
+        break
+
+    db.books.update_one(
+        {"_id": book_id},
+        {"$set": {"copy_right": new_copy_right}},
+    )
+    print("Copy Right updated")
+
+
+def edit_book_metadata(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    """
+    Edit the metadata of a book
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
+    print("-" * 79)
+    print("Edit Metadata")
+    print("-" * 79)
+    book = get_book_data(session=session, db=db, book_id=book_id)
+    print(f" 1. Title              | {book['title']}")
+    print(f" 2. Author             |", end=" ")
+    for i in range(len(book["author"])):
+        author = book["author"][i]
+        if i == 0:
+            if "pseudonym" in author:
+                print(f"{author['name']} ({author['pseudonym']})", end=" ")
+            else:
+                print(f"{author['name']}", end=" ")
+        else:
+            if "pseudonym" in author:
+                print(
+                    f"                       | {author['name']} ({author['pseudonym']})",
+                    end=" ",
+                )
+            else:
+                print(f"                       | {author['name']}", end=" ")
+        print()
+    print(f" 3. Language           | {book['language']}")
+    print(f" 4. Published Date     | {book['published_date']}")
+    print(f" 5. Genres             |", end=" ")
+    for i in range(len(book["genres"])):
+        if i == 0:
+            print(book["genres"][i], end=" ")
+        else:
+            print(f"                       | {book['genres'][i]}", end=" ")
+        print()
+    print(f" 6. Sub-genres         |", end=" ")
+    for i in range(len(book["sub_genres"])):
+        if i == 0:
+            print(book["sub_genres"][i], end=" ")
+        else:
+            print(f"                       | {book['sub_genres'][i]}", end=" ")
+        print()
+    print(f" 7. Main Characters    |", end=" ")
+    for i in range(len(book["main_characters"])):
+        if i == 0:
+            print(book["main_characters"][i], end=" ")
+        else:
+            print(f"                       | {book['main_characters'][i]}", end=" ")
+        print()
+
+    print(f" 8. ISBN               | {book['ISBN']}")
+    order_choice = 8
+    if "set_year" in book:
+        order_choice += 1
+        print(f"{order_choice:2d}. Set Year           | {book['set_year']}")
+    if "set_main_location" in book:
+        order_choice += 1
+        print(f"{order_choice:2d}. Set Main Location  | {book['set_main_location']}")
+    if "copy_right" in book:
+        order_choice += 1
+        print(f"{order_choice:2d}. Copy-right         | {book['copy_right']}")
+    order_choice += 1
+    print(f"{order_choice:2d}. Back")
+    print("-" * 79)
+    choice = get_choice("Enter your choice: ", 12)
+    if choice == 1:
+        edit_book_title(session=session, db=db, book_id=book_id)
+    elif choice == 2:
+        edit_book_author(session=session, db=db, book_id=book_id)
+    elif choice == 3:
+        edit_book_language(session=session, db=db, book_id=book_id)
+    elif choice == 4:
+        edit_published_date(session=session, db=db, book_id=book_id)
+    elif choice == 5:
+        edit_genres(session=session, db=db, book_id=book_id)
+    elif choice == 6:
+        edit_sub_genres(session=session, db=db, book_id=book_id)
+    elif choice == 7:
+        edit_main_characters(session=session, db=db, book_id=book_id)
+    elif choice == 8:
+        edit_isbn(session=session, db=db, book_id=book_id)
+    elif choice == 9:
+        if "set_year" in book:
+            edit_set_year(session=session, db=db, book_id=book_id)
+        elif "set_main_location" in book:
+            edit_set_main_location(session=session, db=db, book_id=book_id)
+        elif "copy_right" in book:
+            edit_copy_right(session=session, db=db, book_id=book_id)
+    elif choice == 10:
+        if "set_main_location" in book:
+            edit_set_main_location(session=session, db=db, book_id=book_id)
+        elif "copy_right" in book:
+            edit_copy_right(session=session, db=db, book_id=book_id)
+    elif choice == 11:
+        edit_copy_right(session=session, db=db, book_id=book_id)
+    elif choice == 12:
+        pass
+
+
 def book_data_menu(
     *,
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
     book_id: str,
 ):
+    """
+    Print the data of a book and ask the user what to do next
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
+    """
     print("-" * 79)
     print("Book Data")
     print("-" * 79)
     book = get_book_data(session=session, db=db, book_id=book_id)
     for key, value in book.items():
-        if key in ["_id", "file_id"]:
+        if key in ["_id", "file_id", "file_path"]:
             continue
         elif key == "author":
             print(f"{key}:")
             for author in value:
-                for k, v in author.items():
-                    print(f"    {k}: {v}")
-                print("- " * 39)
-
+                if "pseudonym" in author:
+                    print(f"   - {author['name']} ({author['pseudonym']})")
+                else:
+                    print(f"   - {author['name']}")
             continue
         elif key in ["genres", "sub_genres", "main_characters"]:
             print(f"{key}:")
@@ -396,10 +1026,24 @@ def book_data_menu(
         else:
             print(f"{key}: {value}")
     print("-" * 79)
-    print("1. Download book")
-    print("2. Back to Main Menu")
+    print("1. Edit Metadata")
+    print("2. Change File")
+    print("3. Delete Book")
+    print("4. Download Book")
+    print("5. Back")
     print("-" * 79)
-    choice = get_choice("Enter your choice: ", 2)
+    choice = get_choice("Enter your choice: ", 5)
+    match choice:
+        case 1:
+            edit_book_metadata(session=session, db=db, book_id=book_id)
+        case 2:
+            print("Change File")
+        case 3:
+            print("Delete Book")
+        case 4:
+            print("Download Book")
+        case 5:
+            pass
 
 
 def list_book_pagination(
