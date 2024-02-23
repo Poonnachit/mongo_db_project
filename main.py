@@ -382,18 +382,18 @@ def print_books(
         if page < total_page:
             print(f"{i+1}. Next Page")
 
-        if page == total_page:
-            print(f"{i+1}. Previous Page")
-            print(f"{i+2}. Back to Main Menu")
-            print("-" * 79)
-            choice = get_choice("Enter your choice: ", i + 2)
-            if choice == i + 1:
-                page -= 1
-                continue
-            elif choice == i + 2:
-                break
-        else:
-            if page > 1:
+        if page > 1:
+            if page == total_page:
+                print(f"{i+1}. Previous Page")
+                print(f"{i+2}. Back to Main Menu")
+                print("-" * 79)
+                choice = get_choice("Enter your choice: ", i + 2)
+                if choice == i + 1:
+                    page -= 1
+                    continue
+                elif choice == i + 2:
+                    break
+            else:
                 print(f"{i+2}. Previous Page")
                 print(f"{i+3}. Back to Main Menu")
                 print("-" * 79)
@@ -405,6 +405,13 @@ def print_books(
                     page -= 1
                     continue
                 elif choice == i + 3:
+                    break
+        else:
+            if page == total_page:
+                print(f"{i+1}. Back to Main Menu")
+                print("-" * 79)
+                choice = get_choice("Enter your choice: ", i + 1)
+                if choice == i + 1:
                     break
             else:
                 print(f"{i+2}. Back to Main Menu")
@@ -437,12 +444,12 @@ def search_books_by_title(
     print_books(session=session, db=db, title=title, filter_dict=filter_dict)
 
 
-def search_books_by_author(
+def search_books_by_author_name(
     *,
     session: pymongo.mongo_client.client_session,
     db: pymongo.mongo_client.database.Database,
 ):
-    title = "Search by author"
+    title = "Search by author name"
     print("-" * 79)
     print(title)
     print("-" * 79)
@@ -458,6 +465,122 @@ def search_books_by_author(
     print_books(session=session, db=db, title=title, filter_dict=filter_dict)
 
 
+def search_books_by_author_pseudonym(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    title = "Search by author pseudonym"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {
+        "author": {"$elemMatch": {"pseudonym": {"$regex": search, "$options": "i"}}}
+    }
+    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+
+
+def search_books_by_genre(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    title = "Search by genre"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"genres": {"$regex": search, "$options": "i"}}
+    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+
+
+def search_books_by_sub_genre(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    title = "Search by sub-genre"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"sub_genres": {"$regex": search, "$options": "i"}}
+    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+
+
+def search_books_by_set_year(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    title = "Search by set year"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"set_year": {"$eq": int(search)}}
+    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+
+
+def search_books_by_set_country(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    title = "Search by set country"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"set_country": {"$regex": search, "$options": "i"}}
+    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+
+
+def search_books_by_main_character(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    title = "Search by main character"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"main_characters": {"$regex": search, "$options": "i"}}
+    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+
+
 def search_books_menu(
     *,
     session: pymongo.mongo_client.client_session,
@@ -467,29 +590,35 @@ def search_books_menu(
     print("Search for a book")
     print("-" * 79)
     print("1. Search by title")
-    print("2. Search by author")
-    print("3. Search by genre")
-    print("4. Search by sub-genre")
-    print("5. Search by set year")
-    print("6. Search by set country")
-    print("7. Back to Main Menu")
+    print("2. Search by author name")
+    print("3. Search by author pseudonym")
+    print("4. Search by genre")
+    print("5. Search by sub-genre")
+    print("6. Search by set year")
+    print("7. Search by set country")
+    print("8. Search by main character")
+    print("9. Back to Main Menu")
     print("-" * 79)
-    choice = get_choice("Enter your choice: ", 7)
+    choice = get_choice("Enter your choice: ", 9)
     match choice:
         case 1:
             search_books_by_title(session=session, db=db)
         case 2:
-            search_books_by_author(session=session, db=db)
+            search_books_by_author_name(session=session, db=db)
         case 3:
-            print("Search by genre")
+            search_books_by_author_pseudonym(session=session, db=db)
         case 4:
-            print("Search by sub-genre")
+            search_books_by_genre(session=session, db=db)
         case 5:
-            print("Search by set year")
+            search_books_by_sub_genre(session=session, db=db)
         case 6:
-            print("Search by set country")
+            search_books_by_set_year(session=session, db=db)
         case 7:
-            print("Back to Main Menu")
+            search_books_by_set_country(session=session, db=db)
+        case 8:
+            search_books_by_main_character(session=session, db=db)
+        case 9:
+            pass
 
 
 def main_menu():
@@ -610,6 +739,7 @@ books_schema = {
             },
             "set_year": {
                 "bsonType": "int",
+                "minimum": 1,
                 "description": "Set year of the book",
             },
             "set_country": {
