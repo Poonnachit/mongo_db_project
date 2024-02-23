@@ -5,8 +5,8 @@ import datetime
 import pymongo
 import gridfs
 from gridfs import GridFS
-# output screen width 79 height 20
 
+# output screen width 79 height 20
 
 
 class BadEpub(Exception):
@@ -14,6 +14,15 @@ class BadEpub(Exception):
 
 
 def get_choice(prompt: str, max_choice: int) -> int:
+    """
+    Get a choice from the user
+
+    Args:
+        prompt: Text to display to the user
+        max_choice: Maximum choice the user can make
+
+    Returns: The choice the user made
+    """
     while True:
         which = input(prompt)
         try:
@@ -25,7 +34,20 @@ def get_choice(prompt: str, max_choice: int) -> int:
             print("Invalid choice!")
 
 
-def initialize_database(*, session, db):
+def initialize_database(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+) -> None:
+    """
+    Initialize the database by creating the books collection if it does not exist
+
+    Args:
+        session: session to connect to the database
+        db: use in which database
+
+    Returns: None
+    """
     if "books" in db.list_collection_names(session=session):
         return
     db.create_collection("books", session=session)
@@ -34,7 +56,24 @@ def initialize_database(*, session, db):
     return
 
 
-def get_file_by_id(*, db, session, file_id, file_name):
+def download_file_by_id(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    file_id: str,
+    file_name: str,
+) -> str:
+    """
+    Download a file from GridFS by its id to books_download directory
+
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        file_id: file id to download
+        file_name: what to name the file
+
+    Returns: The path to the downloaded file
+    """
     fs = gridfs.GridFS(db)
     output_file_name = "./books_download/" + file_name
     # if the output file already exists, remove it
@@ -47,18 +86,38 @@ def get_file_by_id(*, db, session, file_id, file_name):
         output_file.write(fs.get(file_id, session=session).read())
 
     os.chmod(output_file_name, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+    print(f"File {file_name} downloaded to books_download directory")
+    return output_file_name
 
 
-def save_file_gridfs(*, db, session, file_name, file_path):
-    """Read in file_name and write it back out again"""
+def save_file_gridfs(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    file_name: str,
+    file_path: str,
+) -> str:
+    """
+    Save a file to GridFS
+
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        file_name: name of the file
+        file_path: path to the file
+
+    Returns: The id of the file in GridFS
+    """
     if file_path[-5:] != ".epub" and file_path[-5:] != ".epub":
-        print("-"*79)
+        print("-" * 79)
         raise BadEpub(f"File {file_path} is not an epub or pdf file.")
 
     file_name_filter = {"filename": file_name}
     fs: GridFS = gridfs.GridFS(db)
     if fs.exists(file_name_filter, session=session):
-        the_id = fs.find_one(file_name_filter, no_cursor_timeout=True, session=session)._id
+        the_id = fs.find_one(
+            file_name_filter, no_cursor_timeout=True, session=session
+        )._id
         fs.delete(the_id, session=session)
         del the_id
     if os.path.isdir(file_path):
@@ -79,7 +138,22 @@ def save_file_gridfs(*, db, session, file_name, file_path):
     return the_id
 
 
-def add_books(*, session, db, books):
+def add_books(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    books,
+) -> None:
+    """
+    Add books to the database
+
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        books: list of books to add to the database
+
+    Returns: None
+    """
     for i in books:
         try:
             i["file_id"] = save_file_gridfs(
@@ -92,16 +166,23 @@ def add_books(*, session, db, books):
             raise BadEpub(error_message)
         db.books.insert_one(i, session=session)
 
-
-def get_book_by_title(*, session, db, title):
-    print(db.books.find_one({"title": title}, session=session))
+    return
 
 
-def get_book_by_id(*, session, db, book_id):
-    print(db.books.find_one({"_id": book_id}, session=session))
+def add_book_menu(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+) -> None:
+    """
+    Add a book to the database Menu from user input
 
+    Args:
+        session: session to connect to the database
+        db: use in which database
 
-def add_book_menu(*, session, db):
+    Returns: None
+    """
     print("-" * 79)
     print("Add a book")
     print("-" * 79)
@@ -111,13 +192,13 @@ def add_book_menu(*, session, db):
         "published_date": input("Enter the published date of the book: "),
         "copy_right": input("Enter the copy-right of the book: "),
         "file_name": input("Enter the file name of the book: "),
-        "file_path": input("Enter the file path of the book: ")
+        "file_path": input("Enter the file path of the book: "),
     }
     authors = []
     while True:
         author = {
             "name": input("Enter the name of the author: "),
-            "pseudonym": input("Enter the pseudonym of the author: ")
+            "pseudonym": input("Enter the pseudonym of the author: "),
         }
         authors.append(author)
         while True:
@@ -164,74 +245,259 @@ def add_book_menu(*, session, db):
         return
 
 
-def list_book_pagination(*,
-                         session: pymongo.mongo_client.client_session,
-                         db: pymongo.mongo_client.database.Database,
-                         page: int = 1,
-                         page_size: int = 10
-                         ):
+def get_book_data(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+) -> dict:
+    """
+    Get the data of a book from the database
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        book_id: id of the book
 
-    books = db.books.aggregate([
-        {
-            "$facet": {
-                "metadata": [
-                    {"$count": "total_count"},
-                    {"$addFields": {"page": page}},
-                ],
-                "data": [
-                    {"$skip": (page - 1) * page_size},
-                    {"$limit": page_size},
-                ],
-            }
-        }
-    ], session=session)
+    Returns: The data of the book
+    """
+    book = db.books.find_one({"_id": book_id}, session=session)
+
+    return book
+
+
+def book_data_menu(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    book_id: str,
+):
+    print("-" * 79)
+    print("Book Data")
+    print("-" * 79)
+    print(get_book_data(session=session, db=db, book_id=book_id))
+    print("-" * 79)
+    print("1. Download book")
+    print("2. Back to Main Menu")
+    print("-" * 79)
+    choice = get_choice("Enter your choice: ", 2)
+
+
+def list_book_pagination(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    page: int = 1,
+    page_size: int = 5,
+    filter_dict: dict = None,
+) -> tuple:
+    """
+    List books with pagination from the database
+
+    Args:
+        session: session to connect to the database
+        db: use in which database
+        page: current page
+        page_size: number of books per page
+        filter_dict: filter to apply to the books
+
+    Returns: metadata and data
+    """
+    books = db.books.aggregate(
+        [
+            {"$match": filter_dict} if filter_dict else {"$match": {}},
+            {
+                "$facet": {
+                    "metadata": [
+                        {"$count": "total_count"},
+                        {"$addFields": {"page": page}},
+                    ],
+                    "data": [
+                        {"$skip": (page - 1) * page_size},
+                        {"$limit": page_size},
+                    ],
+                }
+            },
+        ],
+        session=session,
+    )
     books_data = list(books)
+    if not books_data[0]["metadata"] or not books_data[0]["data"]:
+        return None, None
     return books_data[0]["metadata"][0], books_data[0]["data"]
 
 
-def list_books_menu(*, session, db):
-    print("-" * 79)
-    print("List all books")
+def print_books(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+    title: str,
+    filter_dict: dict = None,
+):
     page = 1
-    page_size = 10
+    page_size = 5
     while True:
         print("-" * 79)
-        metadata, data = list_book_pagination(session=session, db=db, page=page, page_size=page_size)
+        print(title)
+        print("-" * 79)
+        metadata, data = list_book_pagination(
+            session=session,
+            db=db,
+            page=page,
+            page_size=page_size,
+            filter_dict=filter_dict,
+        )
+        if metadata is None:
+            print()
+            print("No books found")
+            print()
+            print("-" * 79)
+            print("1. Back to Main Menu")
+            print("-" * 79)
+            choice = get_choice("Enter your choice: ", 1)
+            if choice == 1:
+                break
+            continue
+
+        if data is None:
+            print()
+            print("No books found")
+            print()
+            print("-" * 79)
+            print("1. Back to Main Menu")
+            print("-" * 79)
+            choice = get_choice("Enter your choice: ", 1)
+            if choice == 1:
+                break
+            continue
+
         total_page = metadata["total_count"] // page_size
         if metadata["total_count"] % page_size != 0:
             total_page += 1
+        print(f"Page {page} of {total_page}")
 
         for i in range(len(data)):
             print(f"{i+1}. {data[i]['title']}")
-        print("-" * 79)
-        print(f"Page {page} of {total_page}")
-        print("-" * 79)
 
         i = len(data)
-        print(f"{i+1}. Next Page")
+        if page < total_page:
+            print(f"{i+1}. Next Page")
 
-        if page > 1:
-            print(f"{i+2}. Previous Page")
-            print(f"{i+3}. Back to Main Menu")
-            print("-" * 79)
-            choice = get_choice("Enter your choice: ", i+3)
-            if choice == i+1:
-                page += 1
-            elif choice == i+2:
-                page -= 1
-            elif choice == i+3:
-                break
-        else:
+        if page == total_page:
+            print(f"{i+1}. Previous Page")
             print(f"{i+2}. Back to Main Menu")
             print("-" * 79)
-            choice = get_choice("Enter your choice: ", i+2)
-            if choice == i+1:
-                page += 1
-            elif choice == i+2:
+            choice = get_choice("Enter your choice: ", i + 2)
+            if choice == i + 1:
+                page -= 1
+                continue
+            elif choice == i + 2:
                 break
+        else:
+            if page > 1:
+                print(f"{i+2}. Previous Page")
+                print(f"{i+3}. Back to Main Menu")
+                print("-" * 79)
+                choice = get_choice("Enter your choice: ", i + 3)
+                if choice == i + 1:
+                    page += 1
+                    continue
+                elif choice == i + 2:
+                    page -= 1
+                    continue
+                elif choice == i + 3:
+                    break
+            else:
+                print(f"{i+2}. Back to Main Menu")
+                print("-" * 79)
+                choice = get_choice("Enter your choice: ", i + 2)
+                if choice == i + 1:
+                    page += 1
+                    continue
+                elif choice == i + 2:
+                    break
+        book_data_menu(session=session, db=db, book_id=data[choice - 1]["_id"])
 
 
-def menu():
+def search_books_by_title(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    title = "Search by title"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {"title": {"$regex": search, "$options": "i"}}
+    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+
+
+def search_books_by_author(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    title = "Search by author"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {
+        "author": {"$elemMatch": {"name": {"$regex": search, "$options": "i"}}}
+    }
+    print_books(session=session, db=db, title=title, filter_dict=filter_dict)
+
+
+def search_books_menu(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    print("-" * 79)
+    print("Search for a book")
+    print("-" * 79)
+    print("1. Search by title")
+    print("2. Search by author")
+    print("3. Search by genre")
+    print("4. Search by sub-genre")
+    print("5. Search by set year")
+    print("6. Search by set country")
+    print("7. Back to Main Menu")
+    print("-" * 79)
+    choice = get_choice("Enter your choice: ", 7)
+    match choice:
+        case 1:
+            search_books_by_title(session=session, db=db)
+        case 2:
+            search_books_by_author(session=session, db=db)
+        case 3:
+            print("Search by genre")
+        case 4:
+            print("Search by sub-genre")
+        case 5:
+            print("Search by set year")
+        case 6:
+            print("Search by set country")
+        case 7:
+            print("Back to Main Menu")
+
+
+def main_menu():
+    """
+    Main Menu to interact with the user
+
+    Returns: The choice the user made
+    """
     print("-" * 79)
     print("Main Menu")
     print("-" * 79)
@@ -240,14 +506,20 @@ def menu():
     print("3. Search for a book")
     print("4. Exit")
     print("-" * 79)
-    for i in (range(11)):
-        print()
     choice = get_choice("Enter your choice: ", 4)
     return choice
 
 
 def main():
-    with pymongo.MongoClient(URI) as client, client.start_session(causal_consistency=True) as session:
+    """
+    Main function to run the program
+
+    Returns: EXIT_SUCCESS or EXIT_FAILURE
+    """
+    with (
+        pymongo.MongoClient(URI) as client,
+        client.start_session(causal_consistency=True) as session,
+    ):
         db = client.get_database("books")
         db.drop_collection("books")
         try:
@@ -264,13 +536,13 @@ def main():
 
         try:
             while True:
-                choice = menu()
+                choice = main_menu()
                 if choice == 1:
                     add_book_menu(session=session, db=db)
                 elif choice == 2:
-                    list_books_menu(session=session, db=db)
+                    print_books(session=session, db=db, title="List all books")
                 elif choice == 3:
-                    print("Search for a book")
+                    search_books_menu(session=session, db=db)
                 elif choice == 4:
                     print("Goodbye!")
                     break
@@ -283,7 +555,19 @@ def main():
 books_schema = {
     "$jsonSchema": {
         "bsonType": "object",
-        "required": ["Title", "Author", "Language", "ISBN", "Published_date", "Genres", "Sub_genres", "Copy_right", "Main_characters", "File_name", "File_id"],
+        "required": [
+            "Title",
+            "Author",
+            "Language",
+            "ISBN",
+            "Published_date",
+            "Genres",
+            "Sub_genres",
+            "Copy_right",
+            "main_characters",
+            "File_name",
+            "File_id",
+        ],
         "properties": {
             "title": {
                 "bsonType": "string",
@@ -324,6 +608,14 @@ books_schema = {
                 "items": {"bsonType": "string", "description": "Sub-genre of the book"},
                 "description": "Sub-genres of the book",
             },
+            "set_year": {
+                "bsonType": "int",
+                "description": "Set year of the book",
+            },
+            "set_country": {
+                "bsonType": "string",
+                "description": "Set country of the book",
+            },
             "copy_right": {
                 "bsonType": "string",
                 "description": "Copy-right of the book",
@@ -334,7 +626,10 @@ books_schema = {
             },
             "main_characters": {
                 "bsonType": "array",
-                "items": {"bsonType": "string", "description": "Main characters of the book"},
+                "items": {
+                    "bsonType": "string",
+                    "description": "Main characters of the book",
+                },
                 "description": "Main characters of the book",
             },
             "file_name": {
@@ -344,7 +639,7 @@ books_schema = {
             "file_id": {
                 "bsonType": "objectId",
                 "description": "File id of the book",
-            }
+            },
         },
     }
 }
@@ -365,6 +660,8 @@ BOOKS_DATA = [
             "Elizabeth Lavenza",
             "Henry Clerval",
         ],
+        "set_year": 1797,
+        "set_country": "Switzerland",
         "copy_right": "Public domain in the USA.",
         "file_name": "Frankenstein.epub",
         "file_path": "./books/Frankenstein.epub",
@@ -382,7 +679,6 @@ BOOKS_DATA = [
         "file_name": "Moby-Dick.epub",
         "file_path": "./books/Moby-Dick.epub",
         "ISBN": "978-1-59308-510-1",
-
     },
     {
         "title": "book_test2",
@@ -397,7 +693,7 @@ BOOKS_DATA = [
         "file_path": "./books/Moby-Dick.epub",
         "ISBN": "978-1-59308-510-1",
     },
-{
+    {
         "title": "book_test3",
         "author": [{"name": "test3 test3"}],
         "language": "test3",
@@ -449,7 +745,7 @@ BOOKS_DATA = [
         "file_path": "./books/Moby-Dick.epub",
         "ISBN": "978-1-59308-510-1",
     },
-{
+    {
         "title": "book_test7",
         "author": [{"name": "test7 test7"}],
         "language": "test7",
@@ -461,7 +757,6 @@ BOOKS_DATA = [
         "file_name": "Test7.epub",
         "file_path": "./books/Moby-Dick.epub",
         "ISBN": "978-1-59308-510-1",
-
     },
     {
         "title": "book_test8",
@@ -474,6 +769,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test8.epub",
         "file_path": "./books/Moby-Dick.epub",
+        "ISBN": "978-1-59308-510-1",
     },
     {
         "title": "book_test9",
@@ -486,6 +782,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test9.epub",
         "file_path": "./books/Moby-Dick.epub",
+        "ISBN": "0",
     },
     {
         "title": "book_test10",
@@ -498,6 +795,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test10.epub",
         "file_path": "./books/Moby-Dick.epub",
+        "ISBN": "0",
     },
     {
         "title": "book_test11",
@@ -510,6 +808,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test11.epub",
         "file_path": "./books/Moby-Dick.epub",
+        "ISBN": "0",
     },
     {
         "title": "book_test12",
@@ -522,6 +821,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test12.epub",
         "file_path": "./books/Moby-Dick.epub",
+        "ISBN": "0",
     },
     {
         "title": "book_test13",
@@ -534,6 +834,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test13.epub",
         "file_path": "./books/Moby-Dick.epub",
+        "ISBN": "0",
     },
     {
         "title": "book_test14",
@@ -546,6 +847,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test14.epub",
         "file_path": "./books/Moby-Dick.epub",
+        "ISBN": "0",
     },
     {
         "title": "book_test15",
@@ -558,6 +860,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test15.epub",
         "file_path": "./books/Moby-Dick.epub",
+        "ISBN": "0",
     },
     {
         "title": "book_test16",
@@ -570,7 +873,8 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test16.epub",
         "file_path": "./books/Moby-Dick.epub",
-    }
+        "ISBN": "0",
+    },
 ]
 
 
