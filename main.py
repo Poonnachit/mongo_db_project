@@ -1,10 +1,10 @@
 #! /usr/bin/env python3
-import os
-import stat
 import datetime
-import pymongo
+import os
 import gridfs
+import pymongo
 from gridfs import GridFS
+
 
 # output screen width 79 height 20
 
