@@ -43,6 +43,12 @@ It allows to add, delete, update and list books and authors.
 | .gitignore         | file to ignore files and folders                     |
 
 ## What you can do with this project
+- Add a book
+- List all books
+- Update a book
+- Delete a book
+- Search a book by title, author name, author pseudonym, genre, sub-genre, main character, set year, set main location, language, published year, ISBN
+
 
 
 ## Created By

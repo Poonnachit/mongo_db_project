@@ -63,7 +63,6 @@ def download_file_by_id(
     with open(output_file_name, "wb") as output_file:
         output_file.write(fs.get(file_id, session=session).read())
 
-    os.chmod(output_file_name, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
     print(f"File {file_name} downloaded to books_download directory")
     return output_file_name
 
@@ -1531,7 +1530,7 @@ def search_books_by_set_year(
             print("Invalid input")
             continue
         break
-    filter_dict = {"set_year": {"$eq": int(search)}}
+    filter_dict = {"set_year": {"$regex": search, "$options": "i"}}
     print_books(
         session=session,
         db=db,
@@ -1726,6 +1725,51 @@ def search_books_by_copy_right(
     )
 
 
+def search_books_by_published_year(
+    *,
+    session: pymongo.mongo_client.client_session,
+    db: pymongo.mongo_client.database.Database,
+):
+    """
+    Search books by published year
+    Args:
+        session: session to connect to the database
+        db: use in which database
+    """
+    title = "Search by published year"
+    print("-" * 79)
+    print(title)
+    print("-" * 79)
+    while True:
+        search = input("Enter the search term: ")
+        if search == "":
+            print("Invalid input")
+            continue
+        if not search.isdigit():
+            print("Invalid input")
+            continue
+        break
+    while True:
+        file_type = input("Enter the file type (EPUB or PDF or ALL): ")
+        if file_type not in ["EPUB", "PDF", "ALL"]:
+            print("Invalid input")
+            continue
+        break
+    filter_dict = {
+        "$and": [
+            {"published_date": {"$gt": datetime.datetime(int(search), 1, 1)}},
+            {"published_date": {"$lt": datetime.datetime(int(search), 12, 31)}},
+        ]
+    }
+    print_books(
+        session=session,
+        db=db,
+        title=title,
+        filter_dict=filter_dict,
+        file_type=file_type,
+    )
+
+
 def search_books_menu(
     *,
     session: pymongo.mongo_client.client_session,
@@ -1747,14 +1791,14 @@ def search_books_menu(
     print(" 5. Search by sub-genre")
     print(" 6. Search by main character")
     print(" 7. Search by set year")
-    print(" 8. Search by set country")
+    print(" 8. Search by set main location")
     print(" 9. Search by language")
     print("10. Search by published year")
     print("11. Search by copy right")
     print("12. Search by ISBN")
     print("13. Back to Main Menu")
     print("-" * 79)
-    choice = get_choice("Enter your choice: ", 9)
+    choice = get_choice("Enter your choice: ", 13)
     match choice:
         case 1:
             search_books_by_title(session=session, db=db)
@@ -1775,7 +1819,7 @@ def search_books_menu(
         case 9:
             search_books_by_language(session=session, db=db)
         case 10:
-            print("search")
+            search_books_by_published_year(session=session, db=db)
         case 11:
             search_books_by_copy_right(session=session, db=db)
         case 12:

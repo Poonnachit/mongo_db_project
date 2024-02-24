@@ -393,7 +393,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test9.epub",
         "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
+        "ISBN": "N/A",
     },
     {
         "title": "book_test10",
@@ -406,7 +406,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test10.epub",
         "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
+        "ISBN": "N/A",
     },
     {
         "title": "book_test11",
@@ -419,7 +419,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test11.epub",
         "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
+        "ISBN": "N/A",
     },
     {
         "title": "book_test12",
@@ -432,7 +432,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test12.epub",
         "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
+        "ISBN": "N/A",
     },
     {
         "title": "book_test13",
@@ -445,7 +445,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test13.epub",
         "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
+        "ISBN": "N/A",
     },
     {
         "title": "book_test14",
@@ -458,7 +458,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test14.epub",
         "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
+        "ISBN": "N/A",
     },
     {
         "title": "book_test15",
@@ -471,7 +471,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test15.epub",
         "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
+        "ISBN": "N/A",
     },
     {
         "title": "book_test16",
@@ -484,7 +484,7 @@ BOOKS_DATA = [
         "copy_right": "Public domain in the USA.",
         "file_name": "Test16.epub",
         "file_path": "./books/Moby-Dick.epub",
-        "ISBN": "0",
+        "ISBN": "N/A",
     },
 ]
 
